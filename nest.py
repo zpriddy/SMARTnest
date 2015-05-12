@@ -243,6 +243,7 @@ class NestBase(object):
         return '<%s: %s>' % (self.__class__.__name__, self.name)
 
     def _set(self, what, data):
+        print json.dumps(data)
         url = '%s/v2/put/%s.%s' % (self._nest_api.urls['transport_url'],
                                    what, self._serial)
         response = self._nest_api._session.post(url, data=json.dumps(data))
@@ -363,6 +364,16 @@ class Device(NestBase):
 
         self._set('shared', data)
 
+    @property
+    def targetAwayHigh(self):
+        return self._device['away_temperature_high']
+
+    @targetAwayHigh.setter
+    def targetAwayHigh(self,value):
+        data = {'away_temperature_high_f': float(value)}
+
+
+        self._set('device', data)
 
 class Structure(NestBase):
     def _set(self, data):

@@ -34,6 +34,9 @@ programDescription="This program calls the nest API to record data every two min
 
 
 debug = False
+verbose = False
+one_time_run = False
+smartNestEnabled = False
 away_temp = 0
 
 
@@ -50,6 +53,9 @@ def getArgs():
 	parser.add_argument("-p","--password",help="Nest Account Password",required=True)
 	#parser.add_argument("-f","--accountfile",help="Nest Account Ifno Saved In File",required=False) #To Add In Later
 	parser.add_argument("-d","--debug",help="Debug Mode - One Time Run and Debug Info",required=False,action="store_true")
+	parser.add_argument("-v","--verbose",help="Verbose mode - Print logs each run time.", required=False, action="store_true")
+	parser.add_argument("-o","--one-time-run", help="One Time Run - Do not start threading loop", required=False, action="store_true")
+	parser.add_argument("-s","--smartnest", help="Enable Smart Nest Features", required=False, action="store_true")
 
 
 	return parser.parse_args()
@@ -81,9 +87,13 @@ def nestAuth(user):
 
 def smartLoop(nest):
 	global debug
+	global verbose
+	global one_time_run
+	global smartNestEnabled
 
 	# THREADING LOOP - EVERY 120 SECONDS
-	if(not debug):
+	if(not one_time_run):
+		if(debug): print "Starting Threading Process.. "
 		threading.Timer(120,smartLoop,args=[nest]).start()
 	print "Running Data Loop..."
 
@@ -115,7 +125,13 @@ def smartLoop(nest):
 	################
 	# SMARTnest 
 	###############
-	smartNest(log,dayLog)
+	if(smartNestEnabled):
+		smartNest(nest,log,dayLog)
+	else:
+		log['proactive_fan_run'] = False #Has it tried to run the fan to extend time between cycles?
+		log['proactive_fan_run_time'] = 0 # Time that the fan has been running this cycle
+		log['nest_target_temp'] = log['target_temperature'] #Set Programmed Target Temp
+		log['temp_target_temp_status'] = False #Have I chnaged the target temp to extend the cycle runtime?
 
 
 
@@ -133,7 +149,7 @@ def smartLoop(nest):
 
 
 	# PRINT TO SCREEN IF IN DEBUG
-	if(debug):
+	if(verbose):
 		for x in range(0,len(dayLog)):
 			print dayLog[x]
 
@@ -216,6 +232,7 @@ def calcTotals(log, dayLog):
 
 
 def generateGraph(dayLog):
+	global smartNestEnabled
 
 	timestamps = []
 	total_run_time = []
@@ -223,6 +240,7 @@ def generateGraph(dayLog):
 	total_run_time_away = []
 	total_trans_time = []
 	target_temperature = []
+	smartNest_target_temp = []
 	current_temperature = []
 	outside_temperature = []
 
@@ -232,7 +250,8 @@ def generateGraph(dayLog):
 		total_run_time_home.append(log['total_run_time_home'])
 		total_run_time_away.append(log['total_run_time_away'])
 		total_trans_time.append(log['total_trans_time'])
-		target_temperature.append(log['target_temperature'])
+		target_temperature.append(log['nest_target_temp'])
+		smartNest_target_temp.append(log['target_temperature'])
 		current_temperature.append(log['current_temperature'])
 		outside_temperature.append(log['outside_temperature'])
 
@@ -244,13 +263,16 @@ def generateGraph(dayLog):
 	line_chart.add('Away Run Time', total_run_time_away)
 	line_chart.add('Trans Run Time', total_trans_time)
 	line_chart.add('Target Temperature', target_temperature)
+	if(smartNestEnabled): line_chart.add('SMARTnest Adj Temperature', smartNest_target_temp)
 	line_chart.add('Inside Temperature', current_temperature)
 	line_chart.add('Outside Temperature', outside_temperature)
 
 	line_chart.render_to_file('daily.svg')  
 
 
-def smartNest(log, dayLog):
+def smartNest(nest, log, dayLog):
+	global debug
+	if(debug): print "SMARTnest Function..."
 	controlData = {} #This is a place holder for data that I am going to send to the nest
 	# FIRST TIME RUN?
 	controlData['fan_state'] = None 
@@ -258,6 +280,7 @@ def smartNest(log, dayLog):
 
 	dayLogLen = len(dayLog)
 	if(dayLogLen == 0):
+		if(debug): print "\t First Run.. Setting Defaults"
 		log['proactive_fan_run'] = False #Has it tried to run the fan to extend time between cycles?
 		log['proactive_fan_run_time'] = 0 # Time that the fan has been running this cycle
 		log['nest_target_temp'] = log['target_temperature'] #Set Programmed Target Temp
@@ -265,56 +288,82 @@ def smartNest(log, dayLog):
 	
 	else: #This is where the fun starts! 
 		index = dayLogLen - 1
-		if(log['ac_state'] == True): #If the AC is currently running..
+		if(log['ac_state'] == True and log['away'] == False): #If the AC is currently running and in home mode..
+			if(debug): print "\tAC is on and in Home Mode.."
 			log['proactive_fan_run'] = False # RESET FAN STATES
 			log['proactive_fan_run_time'] = 0
 			if(dayLog[index]['temp_target_temp_status'] == False): #IF the temp has not been chnaged
 				#Lower the target temp by one degree
+				if(debug): print "\t\tTemp has not been changed.."
 				log['nest_target_temp'] = log['target_temperature']
 				log['target_temperature'] = log['nest_target_temp'] - 1.0 
 				controlData['target_temperature'] = log['target_temperature']
+				##Temp
+				sendTempCommand(nest,log['target_temperature'])
 				log['temp_target_temp_status'] = True
 
 			elif(dayLog[index]['temp_target_temp_status'] == True and log['target_temperature'] == dayLog[index]['target_temperature']): #IF the temp has been chnaged and the temp was not changed atuomaticlly or manually..
+				if(debug): print "\t\tTemp has been changed by SMARTnest but not by the nest or user"
 				log['nest_target_temp'] = dayLog[index]['nest_target_temp']
 				log['target_temperature'] = dayLog[index]['target_temperature']
 				log['temp_target_temp_status'] = True
 
 			else:
+				if(debug): print "\t\tTemp has been changed by the nest or user.. Resetting.."
 				log['nest_target_temp'] = log['target_temperature']
 				log['target_temperature'] = log['nest_target_temp']
 				log['temp_target_temp_status'] = False 
 
+		elif(log['ac_state'] == True and log['away'] == True):
+			if(debug): print "\tAC is on and in Away Mode.. Resetting Fan States"
+			log['proactive_fan_run'] = False # RESET FAN STATES
+			log['proactive_fan_run_time'] = 0
+
+
 		elif(log['ac_state'] == False): #IF the AC is not currently running..
+			if(debug): print "\tAC is off.."
 			if(dayLog[index]['temp_target_temp_status'] == False): #IF the temp has already been chnaged back
+				if(debug): print "\t\tTemp has already been reset.."
 				log['nest_target_temp'] = log['target_temperature']
 				log['target_temperature'] = log['nest_target_temp']
 				log['temp_target_temp_status'] = False 
 				log['proactive_fan_run'] = dayLog[index]['proactive_fan_run']
 
 			elif(dayLog[index]['temp_target_temp_status'] == True and log['target_temperature'] == dayLog[index]['target_temperature']): #IF the temp has not been chnaged back and the temp was not changed atuomaticlly or manually..
+				if(debug): print "\t\tTemp has not been reset and has not been changed by the user or the nest.. Resetting.."
 				log['nest_target_temp'] = dayLog[index]['nest_target_temp']
 				log['target_temperature'] = dayLog[index]['nest_target_temp'] #Reset target temp to what was stored in the temp value
 				controlData['target_temperature'] = log['target_temperature']
+				## Temp
+				sendTempCommand(nest,log['target_temperature'])
 				log['temp_target_temp_status'] = False 
 				log['proactive_fan_run'] = False # RESET FAN STATES
 
 			else:
+				if(debug): print "\t\tTemp has been changed by the user or the nest.. Resetting states to current.."
 				log['nest_target_temp'] = log['target_temperature']
 				log['target_temperature'] = log['nest_target_temp']
 				log['temp_target_temp_status'] = False 
 				log['proactive_fan_run'] = False # RESET FAN STATES
 
 			if(dayLog[index]['proactive_fan_run'] == False): #If the fan has not run this cycle
+				if(debug): print "\tProactive fan has not ran this cycle.."
 				if(log['current_temperature'] > log['target_temperature']): #Turn On Fan If Temp is above target temp
+					if(debug): print "\t\tTemp is above the target temp.. Turnning on fan"
 					log['proactive_fan_run']  = True
 					controlData['fan_state'] = True
+					##TEMP
+					sendFanCommand(nest, "on")
 					log['proactive_fan_run_time'] = 0
 				else:
+					if(debug): print "\t\tTemp is blow target.. Setting runtime to previous log value"
 					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time']
+					log['proactive_fan_run'] = dayLog[index]['proactive_fan_run']
 
-			elif(dayLog[index]['proactive_fan_run'] == True ) #Has the fan already ran? or is currently running 
+			elif(dayLog[index]['proactive_fan_run'] == True ): #Has the fan already ran? or is currently running 
+				if(debug): print "\tProactive fan has ran or is currently running for this cycle.."
 				if(log['fan_state'] == True): #If fan is currently running - See if it has been running for 5 min - If so stop it. If it is not currently running.. Assume that it has already ran this cycle.
+					if(debug): print "\t\tFan is currently running.. Calculating Fan Runtime for this cycle.."
 					then = dateutil.parser.parse(dayLog[index]['$timestamp'])
 					now = dateutil.parser.parse(log['$timestamp'])
 					diff = now - then
@@ -322,19 +371,30 @@ def smartNest(log, dayLog):
 					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time'] + diff
 
 					if(log['proactive_fan_run_time'] >= 5):
+						if(debug): print "\t\t\tFan has been running for over 5 min.. turnning fan off..."
 						log['proactive_fan_run'] = True
 						controlData['fan_state'] = False
+						#TEMP
+						sendFanCommand(nest, "auto")
 					else:
+						if(debug): print "\t\t\tFan has been running for less than 5 min.. Leaving running.."
+						if(debug): print "\t\t\t\tFan run time:", log['proactive_fan_run_time']
 						log['proactive_fan_run'] = True
 
 				else:
+					if(debug): print "\t\tFan is off and has already ran this cycle.."
 					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time']
 					log['proactive_fan_run'] = True
 
 	
 
 
+def sendFanCommand(nest, fan_state):
+	nest.devices[0]._set('device', {"fan_mode": fan_state})
 
+def sendTempCommand(nest, targetTemp):
+	targetTemp = utils.f_to_c(targetTemp)
+	nest.devices[0].set('shared', {'target_temperature': targetTemp})
 
 
 
@@ -347,9 +407,19 @@ def sendControlData(controlData):
 #############
 def main(args):
 	global debug
+	global verbose
+	global one_time_run
+	global smartNestEnabled
+
 	if(args.debug):
 		debug = True
-	nestUser = User(username=args.username,password=args.password,filename=args.accountfile)
+	if(args.verbose):
+		verbose = True
+	if(args.one_time_run):
+		one_time_run = True
+	if(args.smartnest):
+		smartNestEnabled = True
+	nestUser = User(username=args.username,password=args.password) #,filename=args.accountfile)
 	myNest = nestAuth(nestUser)
 
 
