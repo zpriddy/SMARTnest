@@ -112,6 +112,11 @@ def smartLoop(nest):
 
 	calcTotals(log,dayLog)
 
+	################
+	# SMARTnest 
+	###############
+	smartNest(log,dayLog)
+
 
 
 
@@ -245,6 +250,96 @@ def generateGraph(dayLog):
 	line_chart.render_to_file('daily.svg')  
 
 
+def smartNest(log, dayLog):
+	controlData = {} #This is a place holder for data that I am going to send to the nest
+	# FIRST TIME RUN?
+	controlData['fan_state'] = None 
+	controlData['target_temperature'] = None
+
+	dayLogLen = len(dayLog)
+	if(dayLogLen == 0):
+		log['proactive_fan_run'] = False #Has it tried to run the fan to extend time between cycles?
+		log['proactive_fan_run_time'] = 0 # Time that the fan has been running this cycle
+		log['nest_target_temp'] = log['target_temperature'] #Set Programmed Target Temp
+		log['temp_target_temp_status'] = False #Have I chnaged the target temp to extend the cycle runtime?
+	
+	else: #This is where the fun starts! 
+		index = dayLogLen - 1
+		if(log['ac_state'] == True): #If the AC is currently running..
+			log['proactive_fan_run'] = False # RESET FAN STATES
+			log['proactive_fan_run_time'] = 0
+			if(dayLog[index]['temp_target_temp_status'] == False): #IF the temp has not been chnaged
+				#Lower the target temp by one degree
+				log['nest_target_temp'] = log['target_temperature']
+				log['target_temperature'] = log['nest_target_temp'] - 1.0 
+				controlData['target_temperature'] = log['target_temperature']
+				log['temp_target_temp_status'] = True
+
+			elif(dayLog[index]['temp_target_temp_status'] == True and log['target_temperature'] == dayLog[index]['target_temperature']): #IF the temp has been chnaged and the temp was not changed atuomaticlly or manually..
+				log['nest_target_temp'] = dayLog[index]['nest_target_temp']
+				log['target_temperature'] = dayLog[index]['target_temperature']
+				log['temp_target_temp_status'] = True
+
+			else:
+				log['nest_target_temp'] = log['target_temperature']
+				log['target_temperature'] = log['nest_target_temp']
+				log['temp_target_temp_status'] = False 
+
+		elif(log['ac_state'] == False): #IF the AC is not currently running..
+			if(dayLog[index]['temp_target_temp_status'] == False): #IF the temp has already been chnaged back
+				log['nest_target_temp'] = log['target_temperature']
+				log['target_temperature'] = log['nest_target_temp']
+				log['temp_target_temp_status'] = False 
+				log['proactive_fan_run'] = dayLog[index]['proactive_fan_run']
+
+			elif(dayLog[index]['temp_target_temp_status'] == True and log['target_temperature'] == dayLog[index]['target_temperature']): #IF the temp has not been chnaged back and the temp was not changed atuomaticlly or manually..
+				log['nest_target_temp'] = dayLog[index]['nest_target_temp']
+				log['target_temperature'] = dayLog[index]['nest_target_temp'] #Reset target temp to what was stored in the temp value
+				controlData['target_temperature'] = log['target_temperature']
+				log['temp_target_temp_status'] = False 
+				log['proactive_fan_run'] = False # RESET FAN STATES
+
+			else:
+				log['nest_target_temp'] = log['target_temperature']
+				log['target_temperature'] = log['nest_target_temp']
+				log['temp_target_temp_status'] = False 
+				log['proactive_fan_run'] = False # RESET FAN STATES
+
+			if(dayLog[index]['proactive_fan_run'] == False): #If the fan has not run this cycle
+				if(log['current_temperature'] > log['target_temperature']): #Turn On Fan If Temp is above target temp
+					log['proactive_fan_run']  = True
+					controlData['fan_state'] = True
+					log['proactive_fan_run_time'] = 0
+				else:
+					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time']
+
+			elif(dayLog[index]['proactive_fan_run'] == True ) #Has the fan already ran? or is currently running 
+				if(log['fan_state'] == True): #If fan is currently running - See if it has been running for 5 min - If so stop it. If it is not currently running.. Assume that it has already ran this cycle.
+					then = dateutil.parser.parse(dayLog[index]['$timestamp'])
+					now = dateutil.parser.parse(log['$timestamp'])
+					diff = now - then
+					diff = diff.total_seconds()/60
+					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time'] + diff
+
+					if(log['proactive_fan_run_time'] >= 5):
+						log['proactive_fan_run'] = True
+						controlData['fan_state'] = False
+					else:
+						log['proactive_fan_run'] = True
+
+				else:
+					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time']
+					log['proactive_fan_run'] = True
+
+	
+
+
+
+
+
+
+def sendControlData(controlData):
+	print "Sending Control Data.."
 
 
 #############
