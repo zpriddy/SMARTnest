@@ -225,8 +225,8 @@ def calcTotals(log, dayLog):
 				log['trans_time'] = False
 				log['total_trans_time'] = dayLog[index]['total_trans_time']
 
-		if(log['away']):
-			log['target_temperature'] = away_temp
+	if(log['away']):
+		log['target_temperature'] = away_temp
 
 
 
