@@ -288,9 +288,13 @@ def smartNest(nest, log, dayLog):
 	if(dayLogLen == 0):
 		if(debug): print "\t First Run.. Setting Defaults"
 		log['proactive_fan_run'] = False #Has it tried to run the fan to extend time between cycles?
+		controlData['fan_state'] = False
+		#TEMP
+		sendFanCommand(nest, "auto")
 		log['proactive_fan_run_time'] = 0 # Time that the fan has been running this cycle
 		log['nest_target_temp'] = log['target_temperature'] #Set Programmed Target Temp
 		log['temp_target_temp_status'] = False #Have I chnaged the target temp to extend the cycle runtime?
+
 	
 	else: #This is where the fun starts! 
 		index = dayLogLen - 1
@@ -298,6 +302,10 @@ def smartNest(nest, log, dayLog):
 			if(debug): print "\tAC is on and in Home Mode.."
 			log['proactive_fan_run'] = False # RESET FAN STATES
 			log['proactive_fan_run_time'] = 0
+			controlData['fan_state'] = False
+			#TEMP
+			sendFanCommand(nest, "auto")
+
 			if(dayLog[index]['temp_target_temp_status'] == False): #IF the temp has not been chnaged
 				#Lower the target temp by one degree
 				if(debug): print "\t\tTemp has not been changed.."
