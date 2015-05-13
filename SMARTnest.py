@@ -199,6 +199,12 @@ def calcTotals(log, dayLog):
 			log['total_run_time_away'] = dayLog[index]['total_run_time_away']
 			log['trans_time'] = False
 			log['total_trans_time'] = dayLog[index]['total_trans_time']
+		elif(log['ac_state'] == True and dayLog[index]['ac_state'] == False):
+			log['total_run_time'] = dayLog[index]['total_run_time']
+			log['total_run_time_home'] = dayLog[index]['total_run_time_home']
+			log['total_run_time_away'] = dayLog[index]['total_run_time_away']
+			log['trans_time'] = False
+			log['total_trans_time'] = dayLog[index]['total_trans_time']
 		else:
 			then = dateutil.parser.parse(dayLog[index]['$timestamp'])
 			now = dateutil.parser.parse(log['$timestamp'])
