@@ -394,7 +394,7 @@ def sendFanCommand(nest, fan_state):
 
 def sendTempCommand(nest, targetTemp):
 	targetTemp = utils.f_to_c(targetTemp)
-	nest.devices[0].set('shared', {'target_temperature': targetTemp})
+	nest.devices[0]._set('shared', {'target_temperature': targetTemp})
 
 
 
