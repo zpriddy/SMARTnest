@@ -94,7 +94,7 @@ def smartLoop(nest):
 	# THREADING LOOP - EVERY 120 SECONDS
 	if(not one_time_run):
 		if(debug): print "Starting Threading Process.. "
-		threading.Timer(120,smartLoop,args=[nest]).start()
+		threading.Timer(60,smartLoop,args=[nest]).start()
 	print "Running Data Loop..."
 
 	##############################
@@ -193,6 +193,12 @@ def calcTotals(log, dayLog):
 		log['trans_time'] = False
 	else:
 		index = dayLogLen - 1 #list(dayLog)[dayLogLen-1]
+
+		then = dateutil.parser.parse(dayLog[index]['$timestamp'])
+		now = dateutil.parser.parse(log['$timestamp'])
+		diff = now - then
+		diff = diff.total_seconds()/60
+
 		if(log['ac_state'] == False and dayLog[index]['ac_state'] == False):
 			log['total_run_time'] = dayLog[index]['total_run_time']
 			log['total_run_time_home'] = dayLog[index]['total_run_time_home']
@@ -206,12 +212,7 @@ def calcTotals(log, dayLog):
 			log['trans_time'] = False
 			log['total_trans_time'] = dayLog[index]['total_trans_time']
 		else:
-			then = dateutil.parser.parse(dayLog[index]['$timestamp'])
-			now = dateutil.parser.parse(log['$timestamp'])
-			diff = now - then
-			diff = diff.total_seconds()/60
 			log['total_run_time'] = dayLog[index]['total_run_time'] + diff
-
 			if(log['away']):
 				print "CURRENTLY AWAY"
 				log['total_run_time_away'] = dayLog[index]['total_run_time_away'] + diff
@@ -221,15 +222,15 @@ def calcTotals(log, dayLog):
 				log['total_run_time_home'] = dayLog[index]['total_run_time_home'] + diff
 				log['total_run_time_away'] = dayLog[index]['total_run_time_away']
 
-			if(log['away'] == False and dayLog[index]['away'] == True and log['ac_state'] == True):
-				log['trans_time'] = True
-				log['total_trans_time'] = dayLog[index]['total_trans_time'] + diff
-			elif(log['away'] == False and dayLog[index]['away'] == False and dayLog[index]['trans_time'] == True):
-				log['trans_time'] = True
-				log['total_trans_time'] = dayLog[index]['total_trans_time'] + diff
-			else:
-				log['trans_time'] = False
-				log['total_trans_time'] = dayLog[index]['total_trans_time']
+		if(log['away'] == False and dayLog[index]['away'] == True and log['ac_state'] == True):
+			log['trans_time'] = True
+			log['total_trans_time'] = dayLog[index]['total_trans_time'] + diff
+		elif(log['away'] == False and dayLog[index]['away'] == False and dayLog[index]['trans_time'] == True):
+			log['trans_time'] = True
+			log['total_trans_time'] = dayLog[index]['total_trans_time'] + diff
+		else:
+			log['trans_time'] = False
+			log['total_trans_time'] = dayLog[index]['total_trans_time']
 
 	if(log['away']):
 		log['target_temperature'] = away_temp
@@ -384,8 +385,8 @@ def smartNest(nest, log, dayLog):
 					diff = diff.total_seconds()/60
 					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time'] + diff
 
-					if(log['proactive_fan_run_time'] >= 5):
-						if(debug): print "\t\t\tFan has been running for over 5 min.. turnning fan off..."
+					if(log['proactive_fan_run_time'] >= 10):
+						if(debug): print "\t\t\tFan has been running for over 10 min.. turnning fan off..."
 						log['proactive_fan_run'] = True
 						controlData['fan_state'] = False
 						#TEMP
@@ -462,5 +463,6 @@ class User:
 if __name__ == '__main__':
 	args = getArgs()
 	main(args)
+
 
 
