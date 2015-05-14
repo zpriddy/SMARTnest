@@ -243,7 +243,7 @@ class NestBase(object):
         return '<%s: %s>' % (self.__class__.__name__, self.name)
 
     def _set(self, what, data):
-        print json.dumps(data)
+        #print json.dumps(data)
         url = '%s/v2/put/%s.%s' % (self._nest_api.urls['transport_url'],
                                    what, self._serial)
         response = self._nest_api._session.post(url, data=json.dumps(data))
