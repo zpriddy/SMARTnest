@@ -94,7 +94,7 @@ def smartLoop(nest):
 	# THREADING LOOP - EVERY 120 SECONDS
 	if(not one_time_run):
 		if(debug): print "Starting Threading Process.. "
-		threading.Timer(120,smartLoop,args=[nest]).start()
+		threading.Timer(60,smartLoop,args=[nest]).start()
 	print "Running Data Loop..."
 
 	##############################
@@ -385,8 +385,8 @@ def smartNest(nest, log, dayLog):
 					diff = diff.total_seconds()/60
 					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time'] + diff
 
-					if(log['proactive_fan_run_time'] >= 5):
-						if(debug): print "\t\t\tFan has been running for over 5 min.. turnning fan off..."
+					if(log['proactive_fan_run_time'] >= 10):
+						if(debug): print "\t\t\tFan has been running for over 10 min.. turnning fan off..."
 						log['proactive_fan_run'] = True
 						controlData['fan_state'] = False
 						#TEMP
@@ -463,3 +463,9 @@ class User:
 if __name__ == '__main__':
 	args = getArgs()
 	main(args)
+<<<<<<< HEAD
+=======
+
+
+
+>>>>>>> origin/master
