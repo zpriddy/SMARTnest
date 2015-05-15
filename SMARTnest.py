@@ -463,9 +463,3 @@ class User:
 if __name__ == '__main__':
 	args = getArgs()
 	main(args)
-<<<<<<< HEAD
-=======
-
-
-
->>>>>>> origin/master
