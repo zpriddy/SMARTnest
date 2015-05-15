@@ -20,7 +20,7 @@ import argparse
 import nest
 import utils
 import pickle
-from datetime import * 
+from datetime import *
 import dateutil.parser
 import threading
 import pygal
@@ -61,8 +61,8 @@ def getArgs():
 	return parser.parse_args()
 
 	###############################################
-	# OTHER NOTES 
-	# 
+	# OTHER NOTES
+	#
 	# For groups of args [in this case one of the two is required]:
 	# group = parser.add_mutually_exclusive_group(required=True)
 	# group.add_argument("-a1", "--arg1", help="ARG HELP")
@@ -107,7 +107,7 @@ def smartLoop(nest):
 		dayLogIndex = len(dayLog)
 	except:
 		print "No Current Log File"
-		dayLogIndex = 0 
+		dayLogIndex = 0
 
 
 	log = {}
@@ -123,7 +123,7 @@ def smartLoop(nest):
 	calcTotals(log,dayLog)
 
 	################
-	# SMARTnest 
+	# SMARTnest
 	###############
 	if(smartNestEnabled):
 		smartNest(nest,log,dayLog)
@@ -153,7 +153,7 @@ def smartLoop(nest):
 		for x in range(0,len(dayLog)):
 			print dayLog[x]
 
-	# GENERATE GRAPH 
+	# GENERATE GRAPH
 	generateGraph(dayLog)
 
 
@@ -164,7 +164,7 @@ def deviceData(data,log):
 	deviceData = data._device
 	log['leaf_temp'] = utils.c_to_f(deviceData['leaf_threshold_cool'])
 	away_temp = utils.c_to_f(deviceData['away_temperature_high'])
-	
+
 
 def sharedData(data,log):
 	sharedData = data._shared
@@ -225,7 +225,7 @@ def calcTotals(log, dayLog):
 		if(log['away'] == False and dayLog[index]['away'] == True and log['ac_state'] == True):
 			log['trans_time'] = True
 			log['total_trans_time'] = dayLog[index]['total_trans_time'] + diff
-		elif(log['away'] == False and dayLog[index]['away'] == False and dayLog[index]['trans_time'] == True):
+		elif(log['away'] == False and dayLog[index]['away'] == False and log['ac_state'] == True and dayLog[index]['trans_time'] == True):
 			log['trans_time'] = True
 			log['total_trans_time'] = dayLog[index]['total_trans_time'] + diff
 		else:
@@ -274,7 +274,7 @@ def generateGraph(dayLog):
 	line_chart.add('Inside Temperature', current_temperature)
 	line_chart.add('Outside Temperature', outside_temperature)
 
-	line_chart.render_to_file('daily.svg')  
+	line_chart.render_to_file('daily.svg')
 
 
 def smartNest(nest, log, dayLog):
@@ -282,7 +282,7 @@ def smartNest(nest, log, dayLog):
 	if(debug): print "SMARTnest Function..."
 	controlData = {} #This is a place holder for data that I am going to send to the nest
 	# FIRST TIME RUN?
-	controlData['fan_state'] = None 
+	controlData['fan_state'] = None
 	controlData['target_temperature'] = None
 
 	dayLogLen = len(dayLog)
@@ -296,8 +296,8 @@ def smartNest(nest, log, dayLog):
 		log['nest_target_temp'] = log['target_temperature'] #Set Programmed Target Temp
 		log['temp_target_temp_status'] = False #Have I chnaged the target temp to extend the cycle runtime?
 
-	
-	else: #This is where the fun starts! 
+
+	else: #This is where the fun starts!
 		index = dayLogLen - 1
 		if(log['ac_state'] == True and log['away'] == False): #If the AC is currently running and in home mode..
 			if(debug): print "\tAC is on and in Home Mode.."
@@ -311,7 +311,7 @@ def smartNest(nest, log, dayLog):
 				#Lower the target temp by one degree
 				if(debug): print "\t\tTemp has not been changed.."
 				log['nest_target_temp'] = log['target_temperature']
-				log['target_temperature'] = log['nest_target_temp'] - 1.0 
+				log['target_temperature'] = log['nest_target_temp'] - 1.0
 				controlData['target_temperature'] = log['target_temperature']
 				##Temp
 				sendTempCommand(nest,log['target_temperature'])
@@ -327,7 +327,7 @@ def smartNest(nest, log, dayLog):
 				if(debug): print "\t\tTemp has been changed by the nest or user.. Resetting.."
 				log['nest_target_temp'] = log['target_temperature']
 				log['target_temperature'] = log['nest_target_temp']
-				log['temp_target_temp_status'] = False 
+				log['temp_target_temp_status'] = False
 
 		elif(log['ac_state'] == True and log['away'] == True):
 			if(debug): print "\tAC is on and in Away Mode.. Resetting Fan States"
@@ -341,7 +341,7 @@ def smartNest(nest, log, dayLog):
 				if(debug): print "\t\tTemp has already been reset.."
 				log['nest_target_temp'] = log['target_temperature']
 				log['target_temperature'] = log['nest_target_temp']
-				log['temp_target_temp_status'] = False 
+				log['temp_target_temp_status'] = False
 				log['proactive_fan_run'] = dayLog[index]['proactive_fan_run']
 
 			elif(dayLog[index]['temp_target_temp_status'] == True and log['target_temperature'] == dayLog[index]['target_temperature']): #IF the temp has not been chnaged back and the temp was not changed atuomaticlly or manually..
@@ -351,14 +351,14 @@ def smartNest(nest, log, dayLog):
 				controlData['target_temperature'] = log['target_temperature']
 				## Temp
 				sendTempCommand(nest,log['target_temperature'])
-				log['temp_target_temp_status'] = False 
+				log['temp_target_temp_status'] = False
 				log['proactive_fan_run'] = False # RESET FAN STATES
 
 			else:
 				if(debug): print "\t\tTemp has been changed by the user or the nest.. Resetting states to current.."
 				log['nest_target_temp'] = log['target_temperature']
 				log['target_temperature'] = log['nest_target_temp']
-				log['temp_target_temp_status'] = False 
+				log['temp_target_temp_status'] = False
 				log['proactive_fan_run'] = False # RESET FAN STATES
 
 			if(dayLog[index]['proactive_fan_run'] == False): #If the fan has not run this cycle
@@ -375,7 +375,7 @@ def smartNest(nest, log, dayLog):
 					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time']
 					log['proactive_fan_run'] = dayLog[index]['proactive_fan_run']
 
-			elif(dayLog[index]['proactive_fan_run'] == True ): #Has the fan already ran? or is currently running 
+			elif(dayLog[index]['proactive_fan_run'] == True ): #Has the fan already ran? or is currently running
 				if(debug): print "\tProactive fan has ran or is currently running for this cycle.."
 				if(log['fan_state'] == True): #If fan is currently running - See if it has been running for 5 min - If so stop it. If it is not currently running.. Assume that it has already ran this cycle.
 					if(debug): print "\t\tFan is currently running.. Calculating Fan Runtime for this cycle.."
@@ -401,7 +401,7 @@ def smartNest(nest, log, dayLog):
 					log['proactive_fan_run_time'] = dayLog[index]['proactive_fan_run_time']
 					log['proactive_fan_run'] = True
 
-	
+
 
 
 def sendFanCommand(nest, fan_state):
@@ -463,5 +463,3 @@ class User:
 if __name__ == '__main__':
 	args = getArgs()
 	main(args)
-
-
